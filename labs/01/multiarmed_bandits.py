@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import sys
-
+import scipy.special
 import numpy as np
 
 class MultiArmedBandits():
@@ -45,29 +45,70 @@ def main(args):
 
     # Create environment
     env = MultiArmedBandits(args.bandits, args.episode_length)
+    
+    all_episodes_mean = np.zeros(args.episodes, dtype=np.float64)
+    # We use actions to be called 0 to NUMBER_OF_ACTIONS. (For that we use
+    # np.random.choices and np.argmax everywhere.)
+    NUMBER_OF_ACTIONS = args.bandits
 
     for episode in range(args.episodes):
         env.reset()
 
-        # TODO: Initialize parameters (depending on mode).
+        one_episode_mean_reward = 0.0
+
+        # DONE: Initialize parameters (depending on mode).
+        if args.mode in ["greedy", "ucb"]:
+            q_est = np.repeat(np.float64(args.initial), repeats=NUMBER_OF_ACTIONS)
+            action_counts = np.zeros(NUMBER_OF_ACTIONS, dtype=np.int64)
+        elif args.mode == "gradient":
+            h = np.zeros(NUMBER_OF_ACTIONS, dtype=np.float64)
 
         done = False
+        cycle = 0
         while not done:
-            # TODO: Action selection according to mode
+            # DONE: Action selection according to mode
             if args.mode == "greedy":
-                action = None
+                is_greedy = np.random.random_sample() < args.epsilon
+                action = np.argmax(q_est) if not is_greedy else np.random.randint(NUMBER_OF_ACTIONS)
             elif args.mode == "ucb":
-                action = None
+                # This is a very ugly, but transparent way how to solve zero counts resulting into
+                # infinite values without any zero division warnings.
+                counts = action_counts.copy()
+                counts[action_counts == 0] = 1
+                # q_est.copy() is used since we do not want to amend the q_est by addition,
+                # cycle + 1 to solve t == 0.
+                to_choose_from = q_est.copy() + args.c * np.sqrt(np.log(cycle + 1) / counts)
+                to_choose_from[action_counts == 0] = np.inf
+                action = np.argmax(to_choose_from)
             elif args.mode == "gradient":
-                action = None
+                softmax = scipy.special.softmax(h)
+                action = np.random.choice(NUMBER_OF_ACTIONS, p=softmax)
 
             _, reward, done, _ = env.step(action)
 
-            # TODO: Update parameters
+            # DONE: Update parameters
+            if args.mode in ["greedy", "ucb"]:
+                # https://ufal.mff.cuni.cz/~straka/courses/npfl122/1920/slides/?01#39 and
+                # https://ufal.mff.cuni.cz/~straka/courses/npfl122/1920/slides/?01#47
+                action_counts[action] += 1
+                alpha = args.alpha if args.alpha != 0.0 else 1 / action_counts[action]
+                q_est[action] = q_est[action] + alpha * (reward - q_est[action])
+            elif args.mode == "gradient":
+                # https://ufal.mff.cuni.cz/~straka/courses/npfl122/1920/slides/?01#60
+                one_hot = np.zeros(NUMBER_OF_ACTIONS, dtype=np.int64)
+                one_hot[action] = 1
+                h += args.alpha * reward * (one_hot - softmax)
+            
+            # Iterative arithmetic mean calculation.
+            one_episode_mean_reward = one_episode_mean_reward + (reward - one_episode_mean_reward) / cycle if cycle != 0 else reward
+            cycle += 1
 
-    # TODO: For every episode, compute its average reward (a single number),
+        all_episodes_mean[episode] = one_episode_mean_reward
+
+    # DONE: For every episode, compute its average reward (a single number),
     # obtaining `args.episodes` values. Then return the final score as
     # mean and standard deviation of these `args.episodes` values.
+    return np.mean(all_episodes_mean), np.std(all_episodes_mean)
 
 if __name__ == "__main__":
     mean, std = main(parser.parse_args())
