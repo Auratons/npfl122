@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import numpy as np
 
 class GridWorld:
     # States in the gridworld are the following:
@@ -36,23 +37,53 @@ if __name__ == "__main__":
     # Parse arguments
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("--steps", default=10, type=int, help="Number of policy evaluation/improvements to perform.")
-    parser.add_argument("--iterations", default=1, type=int, help="Number of iterations in policy evaluation step.")
+    parser.add_argument("--steps", default=4, type=int, help="Number of policy evaluation/improvements to perform.")
+    parser.add_argument("--iterations", default=4, type=int, help="Number of iterations in policy evaluation step.")
     parser.add_argument("--gamma", default=1.0, type=float, help="Discount factor.")
     args = parser.parse_args()
 
-    # Start with zero value function and "go North" policy
-    value_function = [0] * GridWorld.states
-    policy = [0] * GridWorld.states
-
-    # TODO: Implement policy iteration algorithm, with `args.steps` steps of
+    # DONE: Implement policy iteration algorithm, with `args.steps` steps of
     # policy evaluation/policy improvement. During policy evaluation, use the
     # current value function and perform `args.iterations` applications of the
     # Bellman equation. Perform the policy evaluation synchronously (i.e., do
     # not overwrite the current value function when computing its improvement,
     # only overwrite the previous value function after each iteration).
 
-    # TODO: The final greedy policy should be in `policy`
+    def bellman(state_to_recompute, action, curr_value_function):
+        new_value = 0.0
+        possible_outcomes = GridWorld.step(state_to_recompute, action)
+        for probability, reward, new_state in possible_outcomes:
+            new_value += probability * (reward + args.gamma * curr_value_function[new_state])
+        return new_value
+
+    def policy_evaluation(curr_policy, value_function):
+        value_function = value_function.copy()
+        for _ in range(0, args.iterations):
+            v_func = np.zeros(GridWorld.states, dtype=np.float32)
+            for state in range(0, GridWorld.states):
+                v_func[state] = bellman(state, curr_policy[state], value_function)
+            value_function = v_func
+        return value_function
+
+    # This is a very simplified version of algorithm from slides
+    # (https://ufal.mff.cuni.cz/~straka/courses/npfl122/1920/slides/?02#67).
+
+    # 1. Initialization
+    # Start with zero value function and "go North" policy (0th in the list)
+    value_function = np.zeros(GridWorld.states, dtype=np.float32)
+    policy = np.zeros(GridWorld.states, dtype=np.int32)
+
+    for _ in range(0, args.steps):
+        # 2. Policy evaluation phase
+        value_function = policy_evaluation(policy, value_function)
+
+        # 3. Policy improvement
+        for state in range(0, GridWorld.states):
+            policy[state] = np.argmax(
+                [bellman(state, a, value_function) for a, _ in enumerate(GridWorld.actions)]
+            )
+
+    # DONE: The final greedy policy is in `policy`
 
     # Print results
     for l in range(3):
