@@ -1,0 +1,12 @@
+#!/usr/bin/env python3
+
+def extract():
+    import base64
+    import io
+    import tarfile
+    data = b'{Wp48S^xk9=GL@E0stWa761SMbT8$j;Gh2np<Mtt9Ei^j^$oGP&<yt-aLUZzt?ryEafw6riSQar+5hLCehJ+WzOxx}gMFM$<&vK9@Z#G04qC@psBEW1XF!cZnGA3@WXK23PI2};xl}jeeonF<;<PZHUNDI_H5l2fT<+JIyn3=E7iE*px)qKaD_T7m*sW@;?0JO=kAqT3n5aHB!2#R-Jztye#g2d4q~DCj3o?V;@4I^L;dsGFirQI14+d;wX8aHlX4r}$2w2Z)f0V=P!7xMt!+tQ6f6$BQ4IbaTXH{XyIr^|X%w3=ai2m|dT)VVot1S0&EZJcG+-d~G*zTNN!I6c2Q>=`{n~cYo&xiDzCYVK@xxM&H1p_12jkNjSRG`5!T;HDIFW4r-?O49n<TO)eX~ys?Ez8pYVKwO&H2j$o;gf=JLL}?>8J!SPNFvl6pVzb;OM?aPv{t`lVYVYrKo>EJ%_JrNgB!84jvo^%qV&JpAsssXJ0_;<ZaCMt>*pJSOv|CovG=*@K@RUS%F*~;^jcuSgcEgKNDZ(=ZKm7N{}<6hTLIQDAcOeblMF3u8<z*ac0hg1v4uFK@CEyUv8Yy?L^Lljp@8Rd7VPCaumH1>c9B!Ms;h+wLepH*8niT$%o(ksV`3Hk2;Na`2!>GIz2ye5McsdrZSw~E@IJ=@3vn}cTS~X>(=(AZi22K7wWo0N;F=aZt-8lrBVX5asMBzP{#`&+Jirhmpx4j#B<oR(j(t(u;KWXlQX-U6UyAqW!M#iXKfQ^e&5+nRoL}ppT(23By-{8nI6}2qM%9PhxIlda&O~rH9tN;NNtG#-qkj{8Zj&<2Z?PKuG0Rxg+eUWy$rX;pe%Yqh{as|Pl*R|y#=0G1;UF<@LuE_ns*X8>B>wS0pCg--%@j!4kaI;SKK&F<#K7zk&x63({&10-@=WzJ1)u8#bK=+PDb~PILn;U*AegP6_Yyrt=>b{nCiI)Tt4=FuEl&1;05cAn028lB6*s)YXEFNAT?=|$l&-SQXYcv##l%rQlg%2!y@}L-1)-H`xy;}k)EgUH^J#C%Tzcu_%Z^>@G%!^rPiFD43d!&nL4ruxN?aIxCt)iF!h2}n{eARn<NC(LrS#`O8>XyzkY?S)+2%Ild>-Tx${FdA)^K$vB`ZRYM)4A>ydow%!*Y;PRM+}sK);UeL|WZ!NvcM?pM#DkLsjPJD#@i2&$jmd6-Qto!_<GR<CgDOh7v)LFnxR8!}}YsB%PA2@0SXz97LzoMLT-W2E6oKG<+=}c^wD}vo^PZ*!xt>n~6#r2nb;RJ!&s`7|!)j@NWvy`Hb}6I>B-DaZ#Q86wdo#TxI*K+tO>c|96Z5G3NmwVG58Yz2AV2o{L9x9PQYm9wO*RIaYx=K6ss$%EgG82-$f62$Q@=gE_;JcT;9rJWtTcs)Jh=n}voareGaW@M*fKg?w?V5WMJf|4F7_L#6!?8;8GQdZbhBPw2C2#)a0Bwp!|+u`hjNF>~u#NYI#1!9#n)1-3jdxgz@>`bnKpH8OR9rBB5pY2$1~LiXT9;ER7Thf-ML)uqM?OvthNDN}x9z<l{HVv+ctW{Uzc+x|&<nj}!UzXP)o{U_W-jyEQ&*`J0S<01C1J?d*|OSZCHoAE~plddKC(%Ur&Rs5)jcbU68viFWivg?#xqh<0p8z9$&+J+3q%ak!l{?@euhfZ1G0V04SU|es6^x8idzbBxLIa~C9^>DXS0(iyYip@F%CCc;zAw_bg9D%%jznZm0UD$|OrOK^7tN-aL$6ed5a+$)3g&#t^#VgG>)(k$Cj-GsDk+TN#IX=FXk!h}6Tia@++c%=i#yH2=Isus3<;{4afQ7cgoT`C|k%-HCG9>Hk$ams6jp-|LnU{RY6s=+T*SnrFBcD7F_HJMvL_P$bo%_I|m~KYNKeV#RVq8|1bnIHQ2*A1s@T@!3hKlX2Y9JC!Dh~<DRw8664&gZemx?|cZ)nfVPAMd7I{bg8sstV^7_$jYm?7BVs<Y3y2awW-y8m-R(uacP(8awKC^^u+-N&IJ5j^vX;ZYq$i+KvyZ*WAq4izP>cZqpfkh<_yxP#!XdFKQfBnIfp*upZm*BAN2iDOsSy``8x%?J}Teg!K)P@mwtQZhsNFh*2*JWR%m36C%d5mpWGD>jd2GL63q7|GwG;J-U8y9Sb6k+df)<W|HQB|9*DCVbxj00000i1`+<ig=|m00F%XfWQI(K2lNBvBYQl0ssI200dcD'
+    with io.BytesIO(base64.b85decode(data)) as tar_data:
+        with tarfile.open(fileobj=tar_data, mode="r") as tar_file:
+            tar_file.extractall()
+
+extract()
