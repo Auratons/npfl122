@@ -67,7 +67,7 @@ if __name__ == "__main__":
             env.episode >= 100 and np.mean(env._episode_returns[-100:]) > args.threshold):
             training = False
 
-        if args.epsilon_final:
+        if args.epsilon_final is not None:
             # Exponential decay.
             epsilon = np.exp(
                 np.interp(env.episode + 1, [0, args.episodes], [np.log(args.epsilon), np.log(args.epsilon_final)])
