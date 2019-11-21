@@ -83,7 +83,8 @@ if __name__ == "__main__":
         command_list = [sys.executable, args.script_name] + \
             [f'--{keys[idx]}=' + str(val)
              for idx, val in enumerate(combination)]
-        result = subprocess.run(
+        print(' '.join(command_list))
+        result = subprocess.Popen(
             command_list,
             # We capture output inside 'result' variable, then save stdout and stderr inside files.
             stdout=subprocess.PIPE,
@@ -92,7 +93,9 @@ if __name__ == "__main__":
         )
         # Expected output is 'The mean 100-episode return after evaluation -227.96\n', other statistics
         # should be written to stderr.
-        scores.append(float(result.stderr.split(' ')[-1]))
+        scores.append(result)
+
+    scores = [float(result.stderr.split(' ')[-1]) for result in scores]
 
     gs_summary = pd.DataFrame(
         list(itertools.product(*values)),
