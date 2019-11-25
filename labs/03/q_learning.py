@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 import numpy as np
 import mountain_car_evaluator
+import embedded_data
+from pathlib import Path
 
 def action_given_policy(state, params):
     """
@@ -31,15 +33,16 @@ if __name__ == "__main__":
     # Parse arguments
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("--episodes", default=2300, type=int, help="Training episodes.")
+    parser.add_argument("--episodes", default=2500, type=int, help="Training episodes.")
     parser.add_argument("--render_each", default=None, type=int, help="Render some episodes.")
     parser.add_argument("--threshold", default=-130, type=float, help="Threshold to pass in training.")
 
-    parser.add_argument("--alpha", default=0.5, type=float, help="Learning rate.")
-    parser.add_argument("--alpha_final", default=None, type=float, help="Final learning rate.")
-    parser.add_argument("--epsilon", default=0.7, type=float, help="Exploration factor.")
+    parser.add_argument("--alpha", default=0.6, type=float, help="Learning rate.")
+    parser.add_argument("--alpha_final", default=0.01, type=float, help="Final learning rate.")
+    parser.add_argument("--epsilon", default=0.6, type=float, help="Exploration factor.")
     parser.add_argument("--epsilon_final", default=0.0000001, type=float, help="Final exploration factor.")
     parser.add_argument("--gamma", default=1.0, type=float, help="Discounting factor.")
+    parser.add_argument("--use_pretrained", action='store_true', default=True, help="Whether or not to use pretrained action value function.")
     args = parser.parse_args()
 
     # Create the environment
@@ -52,8 +55,9 @@ if __name__ == "__main__":
     epsilon = args.epsilon
     alpha = args.alpha
 
-    training = True
+    saved_action_value_path = f'{Path(__file__).parent}/q_learning_avf.npz'
 
+    training = True if not args.use_pretrained else False
     while training:
         # Perform a training episode
         state, done = env.reset(), False
@@ -75,6 +79,7 @@ if __name__ == "__main__":
         if (args.episodes is not None and env.episode >= args.episodes) or (
             env.episode >= 100 and np.mean(env._episode_returns[-100:]) > args.threshold):
             training = False
+            np.savez_compressed(saved_action_value_path, avf=action_value_function)
 
         if args.epsilon_final is not None:
             # Exponential decay.
@@ -90,6 +95,11 @@ if __name__ == "__main__":
 
         if args.render_each and env.episode and env.episode % args.render_each == 0:
             env.render()
+        
+    if args.use_pretrained:
+        # In ReCodEx, there is 3 minute limit on computation, so we pretrained and embedded
+        # obtained policy with ../embed.py script.
+        action_value_function = np.load(saved_action_value_path)['avf']
 
     # For evaluation, we follow only best actions without exploring via epsilon greedy actions
     policy_parameters = {'env': env, 'avf': action_value_function, 'eps': None}
