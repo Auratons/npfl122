@@ -22,6 +22,10 @@ if __name__ == "__main__":
     # Target policy uniformly chooses either action 1 or 2.
     V = np.zeros(states)
     C = np.zeros(states)
+    pi_action_state = np.zeros(actions)
+    pi_action_state[1] = 0.5
+    pi_action_state[2] = 0.5
+    b_action_state = np.float32(1 / actions)
 
     for _ in range(args.episodes):
         state, done = env.reset(), False
@@ -34,7 +38,18 @@ if __name__ == "__main__":
             episode.append((state, action, reward))
             state = next_state
 
-        # TODO: Update V using weighted importance sampling.
+        # DONE: Update V using weighted importance sampling.
+        g = 0.0
+        w = 1.0
+        for t in range(len(episode))[::-1]:
+            if w == 0:
+                break
+            state_t, action_t, reward_t_plus_1 = episode[t]
+            w *= (pi_action_state[action_t] / b_action_state)
+            g += reward_t_plus_1
+            C[state_t] += w
+            if C[state_t] != 0.0:
+                V[state_t] += (w / C[state_t]) * (g - V[state_t])
 
     # Print the final value function V
     for row in V.reshape(4, 4):
