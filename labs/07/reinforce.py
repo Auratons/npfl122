@@ -70,6 +70,18 @@ if __name__ == "__main__":
     tf.random.set_seed(42)
     tf.config.threading.set_inter_op_parallelism_threads(args.threads)
     tf.config.threading.set_intra_op_parallelism_threads(args.threads)
+    # https://www.tensorflow.org/guide/gpu#limiting_gpu_memory_growth
+    gpus = tf.config.experimental.list_physical_devices('GPU')
+    if gpus:
+        try:
+            # Currently, memory growth needs to be the same across GPUs
+            for gpu in gpus:
+                tf.config.experimental.set_memory_growth(gpu, True)
+                logical_gpus = tf.config.experimental.list_logical_devices('GPU')
+                print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
+        except RuntimeError as e:
+            # Memory growth must be set before GPUs have been initialized
+            print(e)
 
     # Create the environment
     env = cart_pole_evaluator.environment(discrete=False)
@@ -119,9 +131,6 @@ if __name__ == "__main__":
             batch_states.append(states)
             batch_actions.append(actions)
             batch_returns.append(returns)
-
-            if env.episode == 8970:
-                network.save_weights(saved_model_path.rstrip('/') + '8970/')
 
         # Train using the generated batch
         network.train(batch_states, batch_actions, batch_returns)
