@@ -116,13 +116,13 @@ if __name__ == "__main__":
 
     if training:
         import mlflow
-        mlflow.log_params(args.__dict__)
         experiment_name = str(Path(__file__).stem)
         experiment = mlflow.get_experiment_by_name(experiment_name)
         if experiment is None:
             mlflow.create_experiment(experiment_name)
             experiment = mlflow.get_experiment_by_name(experiment_name)
         with mlflow.start_run(experiment_id=experiment.experiment_id):
+            mlflow.log_params(args.__dict__)
             while training:
                 # Training
 
