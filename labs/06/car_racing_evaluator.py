@@ -471,7 +471,7 @@ class CarRacingCustomDraw(gym.Env):
             elif pass_through_start and i1==-1:
                 i1 = i
                 break
-        print("Track generation: %i..%i -> %i-tiles track" % (i1, i2, i2-i1))
+        # print("Track generation: %i..%i -> %i-tiles track" % (i1, i2, i2-i1))
         assert i1!=-1
         assert i2!=-1
 
@@ -545,7 +545,7 @@ class CarRacingCustomDraw(gym.Env):
         while True:
             success = self._create_track()
             if success: break
-            print("retry to generate track (normal if there are not many of this messages)")
+            # print("retry to generate track (normal if there are not many of this messages)")
         self.car = Car(self.world, *self.track[0][1:4])
 
         return self.step(None)[0]

@@ -6,7 +6,6 @@ import argparse
 import mlflow
 import mlflow.tensorflow
 from pathlib import Path
-from typing import Iterable, Tuple
 
 import numpy as np
 import tensorflow as tf
@@ -47,14 +46,15 @@ parser.add_argument("--use_pretrained", action='store_true', default=False, help
 
 parser.add_argument("--batch_size", default=32, type=int, help="Batch size.")
 parser.add_argument("--target_freq", default=100, type=int, help="Target network update frequency in train steps.")
-parser.add_argument("--learning_rate", default=0.0001, type=float, help="Learning rate.")
+parser.add_argument("--learning_rate", default=0.00025, type=float, help="Learning rate.")
 parser.add_argument("--memory_size", default=100_000, type=int, help="The size of prioritized replay buffer.")
 parser.add_argument("--priority_alpha", default=0.6, type=float, help="Prioritisation factor: 0. uniform, 1. full.")
-parser.add_argument("--priority_beta", default=0.4, type=float, help="Importance sampling: 0. none, 1. full.")
+parser.add_argument("--priority_beta", default=1.0, type=float, help="Importance sampling: 0. none, 1. full.")
+parser.add_argument("--priority_beta_final", default=None, type=float, help="Importance sampling: 0. none, 1. full.")
 parser.add_argument("--priority_minimal", default=0.01, type=float, help="Minimal priority always present.")
 
 parser.add_argument("--epsilon", default=0.5, type=float, help="Exploration factor.")
-parser.add_argument("--epsilon_final", default=0.01, type=float, help="Final exploration factor.")
+parser.add_argument("--epsilon_final", default=0.001, type=float, help="Final exploration factor.")
 parser.add_argument("--gamma", default=0.95, type=float, help="Discounting factor.")
 parser.add_argument("--threshold", default=250, type=float, help="Threshold to pass in training.")
 
@@ -79,73 +79,12 @@ def setup(args_):
             print(e)
     mlflow.tensorflow.autolog()
     mlflow.log_params(args_.__dict__)
+    mlflow.set_tag('DISCRETE_ACTION', str(DISCRETE_ACTIONS))
 
 
 def log_metric(key, value, step):
     tf.summary.scalar(key, value, step=step)
     mlflow.log_metric(key, float(value), step=step)
-
-
-class SumTree:
-    class Node:
-        def __init__(self):
-            self.parent = None
-            self.value = None
-
-    class LeafNode(Node):
-        def __init__(self, value: float, param_pack: dict):
-            """
-            Leaf Node in SumTree characterized by a value that is summed up in the tree
-            and param_pack that can contain associate data with the leaf node.
-
-            :param value: Number that is being propagated up to the root of the tree.
-            :param param_pack: String: value dictionary that is added as instance attributes.
-            """
-            super(SumTree.LeafNode, self).__init__()
-            self.value = value
-            for key in param_pack:
-                setattr(self, key, param_pack[key])
-
-    class InnerNode(Node):
-        def __init__(self, left_node, right_node):
-            """
-            Inner node of the tree that contains the sum of the children's values.
-            """
-            super(SumTree.InnerNode, self).__init__()
-            self.left = left_node
-            self.right = right_node
-            self.value = left_node.value + right_node.value
-            if left_node is not None:
-                self.left.parent = self
-            if right_node is not None:
-                self.right.parent = self
-
-    def __init__(self, input_pack: Iterable[Tuple[float, dict]]):
-        self.leafs = [self.LeafNode(value, param_dict) for value, param_dict in input_pack]
-        nodes = self.leafs
-        while len(nodes) > 1:
-            inodes = iter(nodes)
-            nodes = [self.InnerNode(left_node, right_node) for left_node, right_node in zip(inodes, inodes)]
-        self.root = nodes[0]
-
-    def retrieve(self, value: float, node):
-        if type(node) is self.LeafNode:
-            return node
-        elif type(node) is self.InnerNode:
-            if node.left.value >= value:
-                return self.retrieve(value, node.left)
-            else:
-                return self.retrieve(value - node.left.value, node.right)
-
-    def update(self, leaf_node_idx: int, new_value: float):
-        change = new_value - self.leafs[leaf_node_idx].value
-        self.leafs[leaf_node_idx].value = new_value
-        self._propagate_changes(change, self.leafs[leaf_node_idx].parent)
-
-    def _propagate_changes(self, change: float, node: Node):
-        node.value += change
-        if node.parent is not None:
-            self._propagate_changes(change, node.parent)
 
 
 class PrioritizedReplayBuffer:
@@ -159,9 +98,9 @@ class PrioritizedReplayBuffer:
         self.reward     = np.zeros(memory_shape,               dtype=np.float32)
         self.done       = np.zeros(memory_shape,               dtype=np.int32)
         self.next_state = np.zeros(memory_shape + slice_shape, dtype=np.float32)
+        self.priorities = np.zeros(memory_shape,               dtype=np.float32)
         self.curr_write_idx = 0
         self.curr_size = 0
-        self.sum_tree = SumTree((0.0, {'idx': idx_}) for idx_ in range(args_.memory_size))
         self.args = args_
 
     def __len__(self):
@@ -173,10 +112,7 @@ class PrioritizedReplayBuffer:
         self.reward[self.curr_write_idx] = reward_
         self.done[self.curr_write_idx] = done_
         self.next_state[self.curr_write_idx] = next_state_
-        self.sum_tree.update(
-            self.curr_write_idx,
-            priority
-        )
+        self.priorities[self.curr_write_idx] = priority
 
         self.curr_write_idx += 1
         if self.curr_write_idx >= self.args.memory_size:
@@ -185,18 +121,17 @@ class PrioritizedReplayBuffer:
         if self.curr_size < self.args.memory_size:
             self.curr_size += 1
 
-    def update(self, *args_, **kwargs_):
-        self.sum_tree.update(*args_, **kwargs_)
+    def update(self, idx_, val):
+        self.priorities[idx_] = val
 
     def sample(self):
-        sample_idxs_ = np.zeros(self.args.batch_size, dtype=np.int32)
-        is_weights = np.zeros(self.args.batch_size, dtype=np.float32)
-        for idx_ in range(self.args.batch_size):
-            sample = np.random.uniform(0, self.sum_tree.root.value)
-            sample_node = self.sum_tree.retrieve(sample, self.sum_tree.root)
-            sample_idxs_[idx_] = sample_node.idx
-            is_weights[idx_] = self.curr_size * (sample_node.value / self.sum_tree.root.value)
-        is_weights = np.power(is_weights, -self.args.priority_beta)
+        probabilities = self.priorities[:self.curr_size].copy() / np.sum(self.priorities[:self.curr_size])
+        sample_idxs_ = np.random.choice(
+            np.arange(self.curr_size),
+            self.args.batch_size,
+            p=probabilities
+        )
+        is_weights = np.power(self.curr_size * self.priorities[sample_idxs_].copy(), -self.args.priority_beta)
         is_weights = is_weights / np.max(is_weights)
         return (
             self.state[sample_idxs_],
@@ -212,27 +147,30 @@ class PrioritizedReplayBuffer:
 class DQN(tf.keras.Model):
     def __init__(self, name):
         # There is a bug in TF 2.0 which causes the `*_on_batch` methods not to use `tf.function`.
+        # noinspection PyUnresolvedReferences
         assert [int(i) for i in tf.__version__.split('.')] >= [2, 1, 0]
         super(DQN, self).__init__(name=name)
         layer_pool = []
 
         def wrap(layer, **kwargs):
             layer_pool.append({})
-            for k in kwargs:
-                layer_pool[-1][(repr(layer), k)] = str(kwargs[k])
+            for k_ in kwargs:
+                layer_pool[-1][(repr(layer), k_)] = str(kwargs[k_])
             return layer(**kwargs)
 
         self._all_layers = [
-            wrap(tf.keras.layers.Conv2D, filters=16, kernel_size=16, strides=4, activation='relu', padding='same'),
-            wrap(tf.keras.layers.Conv2D, filters=32, kernel_size=8, strides=2, activation='relu', padding='same'),
+            wrap(tf.keras.layers.Conv2D, filters=16, kernel_size=8, strides=2, activation='relu', padding='same'),
+            wrap(tf.keras.layers.MaxPool2D, pool_size=2, strides=2, padding='same'),
+            wrap(tf.keras.layers.Conv2D, filters=32, kernel_size=4, strides=2, activation='relu', padding='same'),
+            wrap(tf.keras.layers.MaxPool2D, pool_size=2, strides=2, padding='same'),
             wrap(tf.keras.layers.Flatten),
-            wrap(tf.keras.layers.Dense, units=112, activation='relu'),
+            wrap(tf.keras.layers.Dense, units=64, activation='relu'),
             wrap(tf.keras.layers.Dense, units=len(DISCRETE_ACTIONS), activation='linear'),
         ]
 
-        for idx, d in enumerate(layer_pool):
-            for (rep, k) in d:
-                mlflow.set_tag(rep.split('\'')[1] + f'_{idx}_' + k, layer_pool[idx][(rep, k)])
+        for idx_, d_ in enumerate(layer_pool):
+            for (rep, k) in d_:
+                mlflow.set_tag(rep.split('\'')[1] + f'_{idx_}_' + k, layer_pool[idx_][(rep, k)])
 
     @tf.function
     def call(self, states):
@@ -279,7 +217,7 @@ class DDQN(DQN):
         self._step_for_target_network_update += 1
         if self._step_for_target_network_update % self._target_freq == 0:
             self._step_for_target_network_update = 0
-            for main, target in zip(self.trainable_variables, self.target_network.trainable_variables):
+            for main, target in zip(self.variables, self.target_network.variables):
                 target.assign(main)
         return super(DDQN, self).train_on_batch(*args_, **kwargs_)
 
@@ -403,21 +341,28 @@ if __name__ == "__main__":
 
             if args.epsilon_final is not None:
                 epsilon = np.exp(
-                    np.interp(env.episode + 1, [0, 4 * args.episodes / 5], [np.log(args.epsilon), np.log(args.epsilon_final)])
+                    np.interp(
+                        env.episode + 1, [0, 4 * args.episodes / 5], [np.log(args.epsilon), np.log(args.epsilon_final)]
+                    )
+                )
+            if args.priority_beta_final is not None:
+                args.priority_beta = np.interp(
+                    env.episode + 1, [0, 4 * args.episodes / 5], [first_beta, args.priority_beta_final]
                 )
 
-            args.priority_beta = np.interp(env.episode + 1, [0, 4 * args.episodes / 5], [first_beta, 1])
-
         if args.use_pretrained:
+            import car_racing_model
             network.load_weights(saved_model_path)
 
         # After training (or loading the model), you should run the evaluation:
         while True:
+            # noinspection PyRedeclaration
             state, done = color.rgb2gray(env.reset(start_evaluate=True))[:-MARGIN, ..., np.newaxis], False
             initial_zeros = np.zeros((state.shape[0], state.shape[1], args.frame_history - 1), dtype=state.dtype)
             state = np.concatenate((initial_zeros, state), axis=-1)
             while not done:
                 action = np.argmax(network.predict(state[np.newaxis])[0])
+                # noinspection PyTypeChecker
                 next_states_4th_slice, reward, done, _ = env.step(DISCRETE_ACTIONS[action])
                 next_states_4th_slice = color.rgb2gray(next_states_4th_slice[:-MARGIN, ...])
                 state = np.concatenate((state[..., 1:], next_states_4th_slice[..., np.newaxis]), axis=-1)
