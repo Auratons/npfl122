@@ -86,6 +86,8 @@ class RFB:
 
 
 if __name__ == "__main__":
+    # There is a bug in TF 2.0 which causes the `*_on_batch` methods not to use `tf.function`.
+    assert [int(i) for i in tf.__version__.split('.')] >= [2, 1, 0]
     # Parse arguments
     import argparse
     parser = argparse.ArgumentParser()

@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import collections
-import numpy as np
 import tensorflow as tf
 import cart_pole_evaluator
 import numpy as np
@@ -8,6 +7,7 @@ import random
 import datetime
 import embedded_data
 from pathlib import Path
+
 
 class Network(tf.keras.Model):
     def __init__(self, env, args):
@@ -71,7 +71,7 @@ if __name__ == "__main__":
     parser.add_argument("--render_each", default=0, type=int, help="Render some episodes.")
     parser.add_argument("--threads", default=1, type=int, help="Maximum number of threads to use.")
     parser.add_argument("--threshold", default=420, type=float, help="Threshold to pass in training.")
-    parser.add_argument("--use_pretrained", action='store_true', default=True, help="Whether or not to use pretrained policy.")
+    parser.add_argument("--use_pretrained", action='store_true', default=False, help="Whether or not to use pretrained policy.")
     args = parser.parse_args()
 
     # Fix random seeds and number of threads
